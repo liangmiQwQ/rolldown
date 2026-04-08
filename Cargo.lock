@@ -3727,6 +3727,7 @@ dependencies = [
  "oxc_index",
  "oxc_sourcemap",
  "regex",
+ "rolldown_sourcemap",
  "rustc-hash",
  "serde",
  "simd-utf16-len",
