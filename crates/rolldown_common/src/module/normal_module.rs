@@ -10,6 +10,14 @@ use crate::{EcmaView, IndexModules, Interop, Module, ModuleType};
 use std::ops::{Deref, DerefMut};
 
 use itertools::Itertools;
+use oxc::{
+  allocator::{Allocator, Vec as ArenaVec},
+  ast::{
+    ast::{Comment, Program},
+    builder::AstBuilder,
+  },
+  span::GetSpan,
+};
 use oxc_index::IndexVec;
 use oxc_str::CompactStr;
 use rolldown_ecmascript::{EcmaAst, EcmaCompiler, PrintOptions};
@@ -194,38 +202,77 @@ impl NormalModule {
     initial_indent: u32,
   ) -> ModuleRenderOutput {
     match args {
-      ModuleRenderArgs::Ecma { ast } => {
-        let enable_sourcemap = options.sourcemap.is_some() && !self.is_virtual();
+      ModuleRenderArgs::Ecma { ast } => self.render_program(options, ast.program(), initial_indent),
+    }
+  }
 
-        // Because oxc codegen sourcemap is last of sourcemap chain,
-        // If here no extra sourcemap need remapping, we using it as final module sourcemap.
-        // So here make sure using correct `source_name` and `source_content.
-        let render_output = EcmaCompiler::print_with(
-          ast,
-          PrintOptions {
-            sourcemap: enable_sourcemap,
-            filename: self.id.to_string(),
-            comments: {
-              let mut c: rolldown_ecmascript::PrintCommentsOptions = options.comments.into();
-              // Annotation comments must survive into the rendered text because
-              // `minify_chunks` re-parses it; without them the parser won't set
-              // `expr.pure` and DCE can't eliminate unused pure calls.
-              // `minify_chunks` codegen will honour the user's `comments.annotation`
-              // setting when it emits the final output.
-              // Only `annotation` needs this override — `legal` and `jsdoc` comments
-              // have no effect on DCE behaviour.
-              c.annotation = true;
-              c
-            },
-            initial_indent,
-            ascii_only: options.charset.is_ascii(),
-          },
-        );
-        ModuleRenderOutput {
-          code: render_output.code,
-          map: render_output.map.map(oxc_sourcemap::SourceMap::into_owned),
-        }
-      }
+  /// Moves the body of a root or a member of a deferred group (the statements from
+  /// `body_start` on) out of the program of `ast`, and prints it on its own. The program keeps
+  /// the top-level declarations, which `render` prints later. Each comment goes to the part where
+  /// a print of the whole program puts it (`take_group_body_comments`).
+  /// See internal-docs/import-defer/implementation.md ("Rendering").
+  pub fn render_group_body(
+    &self,
+    options: &NormalizedBundlerOptions,
+    ast: &mut EcmaAst,
+    body_start: usize,
+  ) -> ModuleRenderOutput {
+    ast.program.with_mut(|fields| {
+      let program = fields.program;
+      let allocator = fields.allocator;
+      let builder = AstBuilder::new(allocator);
+      let comments = take_group_body_comments(program, body_start, allocator);
+      let body = ArenaVec::from_iter_in(program.body.drain(body_start..), &allocator);
+      let body_program = Program::new(
+        program.span,
+        program.source_type,
+        program.source_text,
+        comments,
+        None,
+        [],
+        body,
+        &builder,
+      );
+      self.render_program(options, &body_program, 0)
+    })
+  }
+
+  /// Prints `program`.
+  fn render_program(
+    &self,
+    options: &NormalizedBundlerOptions,
+    program: &Program<'_>,
+    initial_indent: u32,
+  ) -> ModuleRenderOutput {
+    let enable_sourcemap = options.sourcemap.is_some() && !self.is_virtual();
+
+    // Because oxc codegen sourcemap is last of sourcemap chain,
+    // If here no extra sourcemap need remapping, we using it as final module sourcemap.
+    // So here make sure using correct `source_name` and `source_content.
+    let render_output = EcmaCompiler::print_program_with(
+      program,
+      PrintOptions {
+        sourcemap: enable_sourcemap,
+        filename: self.id.to_string(),
+        comments: {
+          let mut c: rolldown_ecmascript::PrintCommentsOptions = options.comments.into();
+          // Annotation comments must survive into the rendered text because
+          // `minify_chunks` re-parses it; without them the parser won't set
+          // `expr.pure` and DCE can't eliminate unused pure calls.
+          // `minify_chunks` codegen will honour the user's `comments.annotation`
+          // setting when it emits the final output.
+          // Only `annotation` needs this override — `legal` and `jsdoc` comments
+          // have no effect on DCE behaviour.
+          c.annotation = true;
+          c
+        },
+        initial_indent,
+        ascii_only: options.charset.is_ascii(),
+      },
+    );
+    ModuleRenderOutput {
+      code: render_output.code,
+      map: render_output.map.map(oxc_sourcemap::SourceMap::into_owned),
     }
   }
 
@@ -270,4 +317,46 @@ impl DerefMut for NormalModule {
 
 pub enum ModuleRenderArgs<'any> {
   Ecma { ast: &'any EcmaAst },
+}
+
+/// Takes from `program` the comments that a print of the whole program puts in its statements
+/// from `body_start` on (the body of a root or a member of a deferred group). `program` keeps
+/// the other comments. A comment goes to the declarations (the statements before `body_start`):
+/// - at position 0: the print puts these at the start of the program.
+/// - in a declaration: its anchor is there. A declaration is a hoisted function, a module
+///   declaration, or a statement that the finalizer made, which has an empty span and no
+///   comments in it.
+/// - a legal comment before the start of a declaration: the print puts a legal comment before
+///   the first statement that starts after it, also if its anchor is gone.
+fn take_group_body_comments<'a>(
+  program: &mut Program<'a>,
+  body_start: usize,
+  allocator: &'a Allocator,
+) -> ArenaVec<'a, Comment> {
+  let mut declaration_spans = program.body[..body_start]
+    .iter()
+    .map(GetSpan::span)
+    .filter(|span| !span.is_empty())
+    .collect::<Vec<_>>();
+  declaration_spans.sort_unstable_by_key(|span| span.start);
+  let last_declaration_start = declaration_spans.last().map(|span| span.start);
+  let in_declarations = |comment: &Comment| {
+    let position = comment.attached_to;
+    let idx = declaration_spans.partition_point(|span| span.start <= position);
+    position == 0
+      || (idx > 0 && position < declaration_spans[idx - 1].end)
+      || ((comment.is_legal() || comment.is_coverage_ignore_file())
+        && last_declaration_start.is_some_and(|start| start > position))
+  };
+  let mut declaration_comments = ArenaVec::new_in(&allocator);
+  let mut body_comments = ArenaVec::new_in(&allocator);
+  for comment in &program.comments {
+    if in_declarations(comment) {
+      declaration_comments.push(comment.clone());
+    } else {
+      body_comments.push(comment.clone());
+    }
+  }
+  program.comments = declaration_comments;
+  body_comments
 }

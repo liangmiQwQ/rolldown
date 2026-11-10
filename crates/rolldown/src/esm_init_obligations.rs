@@ -39,9 +39,9 @@
 
 use oxc_str::CompactStr;
 use rolldown_common::{
-  ConstExportMeta, ExportsKind, ImportKind, ImportRecordIdx, ImportRecordMeta, IndexModules,
-  InlineConstMode, Module, ModuleIdx, NormalModule, ResolvedImportRecord, Specifier,
-  SymbolOrMemberExprRef, SymbolRef, SymbolRefDb, WrapKind,
+  ConcatenateWrappedModuleKind, ConstExportMeta, ExportsKind, ImportKind, ImportRecordIdx,
+  ImportRecordMeta, IndexModules, InlineConstMode, Module, ModuleIdx, NormalModule,
+  ResolvedImportRecord, Specifier, SymbolOrMemberExprRef, SymbolRef, SymbolRefDb, WrapKind,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
 
@@ -227,7 +227,14 @@ pub fn collect_entry_reexported_wrapper_inits(
         return None;
       }
       let owner_meta = &metas[canonical_ref.owner];
-      if !matches!(owner_meta.wrap_kind(), WrapKind::Esm) {
+      if !matches!(owner_meta.wrap_kind(), WrapKind::Esm)
+        // An inner concatenated module's body runs via its group's shared wrapper; its own
+        // `wrapper_ref` is not a callable declaration (mirrors the finalizer's emission skip).
+        || matches!(
+          owner_meta.concatenated_wrapped_module_kind,
+          ConcatenateWrappedModuleKind::Inner
+        )
+      {
         return None;
       }
       let wrapper_ref = owner_meta.wrapper_ref?;
@@ -996,6 +1003,10 @@ fn wrapped_esm_target_is_reachable(
     .esm_init_target(module_idx, meta)
     .is_some_and(|target| wrapper_is_reachable(target.wrapper_ref))
     && meta.is_included
+    && !matches!(
+      meta.concatenated_wrapped_module_kind,
+      rolldown_common::ConcatenateWrappedModuleKind::Inner
+    )
 }
 
 /// Whether an included, unwrapped forwarder discharges every static-import obligation.
