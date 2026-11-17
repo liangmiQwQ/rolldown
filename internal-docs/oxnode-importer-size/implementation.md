@@ -18,9 +18,9 @@ Additional distribution payload, measured without minifying the importer:
 
 | Component                                       | Unpacked bytes |             Compressed bytes |
 | ----------------------------------------------- | -------------: | ---------------------------: |
-| Importer JS + declaration + measurement adapter |         34,840 | 10,659 (sum of gzip streams) |
+| Importer JS + declaration + measurement adapter |         34,884 | 10,662 (sum of gzip streams) |
 | Complete `@oxc-project/runtime@0.159.0`         |        269,168 |    48,582 (registry tarball) |
-| Total increase including native binding         |    **834,152** |         **282,030 estimate** |
+| Total increase including native binding         |    **834,196** |         **282,033 estimate** |
 
 Thus a straightforward integration is approximately **0.83 MB installed / 0.28 MB downloaded per platform**. This includes the complete helper package rather than assuming ordinary enum-only configs never need helpers. Rolldown's runtime helper sources already exist for bundling, but they are not currently a published `@oxc-project/runtime/helpers/*` runtime dependency. Exposing/reusing a suitable existing helper surface could avoid some of that extra payload; that optimization was not measured.
 
@@ -32,7 +32,7 @@ Compressed totals are component sums, not a packed Rolldown npm tarball delta. T
 - oxnode source: `oxc-project/oxc-node@76c132c015f024e8b912f4958cb10e7f4091118f`, fetched as an immutable GitHub archive. Other local oxnode and Vite+ checkouts contain user modifications and were not used as build inputs or edited.
 - `research/oxnode-importer/vendor` contains that revision's `src/`, `Cargo.toml` and `build.rs`. Its manifest declares MIT. Changes: isolate its Cargo workspace; align Oxc and sourcemap versions; change the two JS-wrapper feature gates to `cfg_attr` so embedders can call the environment-aware wrappers without registering all oxnode exports.
 - `crates/rolldown_binding/src/oxnode_importer.rs` forwards only resolve, transform and dependency-policy operations, plus runtime syntax initialization. `default-features = false` avoids oxnode's allocator and automatic NAPI exports. `yarn_pnp` matches Rolldown's resolver build configuration; this does not establish oxnode Yarn PnP compatibility.
-- `research/oxnode-importer/importer.mjs` and its declaration come from the same upstream revision. Only the binding import and helper resolution target are changed. The runner installs no global Node loader hooks. Helper imports resolve to `@oxc-project/runtime` instead of requiring a second oxnode package.
+- `research/oxnode-importer/importer.mjs` and its declaration come from the same upstream revision. The binding import and helper resolution target are changed, and the repository commit hook formats the JavaScript. The runner installs no global Node loader hooks. Helper imports resolve to `@oxc-project/runtime` instead of requiring a second oxnode package.
 - The `oxnode-importer` Cargo feature is opt-in. Existing generated bindings and package exports are untouched. `binding.mjs` loads the measured `.node` directly; this proves the native entry points are linked and callable, not dead-stripped placeholders.
 
 The release settings are the repository's normal `opt-level = 3`, fat LTO, one codegen unit and stripped symbols. Direct Cargo builds were used after checking `just --list`, because this experiment needs feature-on/off native snapshots without regenerating package bindings. The standard package binding builder also invokes the same Cargo package/profile through napi-rs.

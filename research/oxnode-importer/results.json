@@ -39,9 +39,9 @@
   },
   "javascript": {
     "importer.mjs": {
-      "bytes": 32749,
-      "gzip9": 9651,
-      "sha256": "34d1a3597862c667d35eea7080f9bef5415d73fe9d508a917f540c7cccd742bc"
+      "bytes": 32793,
+      "gzip9": 9654,
+      "sha256": "95703ac0f78938119850698bacf9f7f839ea5a08c45280232d514427dbd5cc1d"
     },
     "importer.d.mts": {
       "bytes": 1728,
@@ -60,7 +60,7 @@
     "unpackedBytes": 269168
   },
   "totals": {
-    "alignedUnpackedIncrement": 834152,
-    "alignedCompressedIncrementEstimate": 282030
+    "alignedUnpackedIncrement": 834196,
+    "alignedCompressedIncrementEstimate": 282033
   }
 }
