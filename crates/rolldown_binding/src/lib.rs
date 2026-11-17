@@ -54,6 +54,8 @@ pub mod binding_dev_options;
 pub mod binding_watcher_bundler;
 pub mod classic_bundler;
 mod generated;
+#[cfg(feature = "oxnode-importer")]
+mod oxnode_importer;
 pub mod native_memory;
 pub mod options;
 pub mod parallel_js_plugin_registry;

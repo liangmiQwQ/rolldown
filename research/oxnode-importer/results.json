@@ -1,0 +1,66 @@
+{
+  "platform": "darwin",
+  "architecture": "arm64",
+  "node": "v24.22.3",
+  "compression": "gzip level 9, zlib 1.3.2.1-motley-285e94b",
+  "binaries": {
+    "baseline": {
+      "bytes": 19019920,
+      "gzip9": 8462652,
+      "sha256": "2a3483b1614ccdea7f7f157a6f8d71d44102d8b1866cb7ea9db42fb6c3d673b7"
+    },
+    "control": {
+      "bytes": 19019920,
+      "gzip9": 8462655,
+      "sha256": "4e27d1ec7364c041bc4f6697f6bc33ee40582222a904a87296bcc6646d76562a"
+    },
+    "unaligned": {
+      "bytes": 21834272,
+      "gzip9": 9621282,
+      "sha256": "465afbc8b619f48ff88a2986e48ff883066c203498be2924d4d790cb33234b31"
+    },
+    "aligned": {
+      "bytes": 19550064,
+      "gzip9": 8685444,
+      "sha256": "babf3ce62976f752fdd3f71f4c9ac22cfa9621a2843fa7372bc1abc7ab999bac"
+    }
+  },
+  "deltas": {
+    "aligned": {
+      "bytes": 530144,
+      "gzip9": 222789,
+      "percent": 2.7873093051915987
+    },
+    "unaligned": {
+      "bytes": 2814352,
+      "gzip9": 1158627,
+      "percent": 14.796865601958364
+    }
+  },
+  "javascript": {
+    "importer.mjs": {
+      "bytes": 32749,
+      "gzip9": 9651,
+      "sha256": "34d1a3597862c667d35eea7080f9bef5415d73fe9d508a917f540c7cccd742bc"
+    },
+    "importer.d.mts": {
+      "bytes": 1728,
+      "gzip9": 760,
+      "sha256": "23f57f48e8544a1ca147c63c1d10d12c587e1921519d297ed2f077f1afbd7259"
+    },
+    "binding.mjs": {
+      "bytes": 363,
+      "gzip9": 248,
+      "sha256": "ab622c95190e25c888682d571cc900eab3b0bca6899f3765a4424627be8af26f"
+    }
+  },
+  "runtime": {
+    "version": "0.159.0",
+    "archiveBytes": 48582,
+    "unpackedBytes": 269168
+  },
+  "totals": {
+    "alignedUnpackedIncrement": 834152,
+    "alignedCompressedIncrementEstimate": 282030
+  }
+}

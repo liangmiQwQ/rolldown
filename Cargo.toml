@@ -1,5 +1,6 @@
 [workspace]
 members = ["./crates/*", "tasks/*"]
+exclude = ["research/oxnode-importer/vendor"]
 resolver = "3"
 
 [workspace.package]

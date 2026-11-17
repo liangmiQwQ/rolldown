@@ -16,6 +16,9 @@ crate-type = ["lib", "cdylib"]
 doctest = false
 
 [dependencies]
+oxc-node = { path = "../../research/oxnode-importer/vendor", default-features = false, features = [
+  "yarn_pnp",
+], optional = true }
 anyhow = { workspace = true }
 arcstr = { workspace = true }
 async-channel = { workspace = true }
@@ -96,6 +99,7 @@ rolldown_tracking_allocator = { workspace = true, optional = true }
 napi-build = { workspace = true }
 
 [features]
+oxnode-importer = ["dep:oxc-node"]
 chrome-tracing = ["rolldown_tracing/chrome-tracing"]
 default_global_allocator = []
 disable_panic_hook = []
